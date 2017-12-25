@@ -143,7 +143,6 @@ contract JolyyToken is owned, token {
 	/* Burns a specific amount of tokens. */
     function burn(uint256 _value) public onlyOwner returns (bool success) {
         require (balances[msg.sender] >= _value);            				// Check if the sender has enough
-		transfer(0x0, _value);
         balances[msg.sender] = SafeMath.sub(balances[msg.sender], _value);  // Subtract from the sender
         totalSupply = SafeMath.sub(totalSupply, _value);                    // Updates totalSupply
         Burn(msg.sender, _value);
@@ -151,7 +150,7 @@ contract JolyyToken is owned, token {
     }
 
 	/*  Function to check the amount of tokens that an owner allowed to a spender */
-	function allowance(address _owner, address _spender) onlyPayloadSize(2) public constant returns (uint256) {
+	function allowance(address _owner, address _spender) public constant returns (uint256) {
 		return allowed[_owner][_spender];
 	}
 
@@ -179,6 +178,7 @@ contract JolyyPreSale is owned {
 	address	public bounty;
 	
     mapping(address => uint256) public balanceOf;
+	mapping(address => bool) public isInvested;
 	
 	bool public isActive;
     bool public fundingGoalReached;
@@ -204,7 +204,7 @@ contract JolyyPreSale is owned {
 		bounty = 0xf7Bc105cCAdC3C9032a2eD60339F8F490Dc16B44;
     }
 	
-	function preSaleActivete(uint256 _price) public onlyOwner {
+	function preSaleActivate(uint256 _price) public onlyOwner {
 		require(!isActive && !crowdsaleClosed);
 		price = _price;
 		preSaleStart = block.timestamp;
@@ -220,6 +220,7 @@ contract JolyyPreSale is owned {
 		if(isActive) {
 			require(fundingGoal >= amountRaised.add(amount));
 			require(msg.value >= 2 ether && msg.value <= 25 ether);
+			require(!isInvested[msg.sender]);
 			uint256 tokens = SafeMath.div(amount, price);
 			tokens = tokens.mul(1 ether);
 			require(Cap >= (SafeMath.add(SoldTokens, tokens)));
@@ -228,6 +229,7 @@ contract JolyyPreSale is owned {
 			SoldTokens = SafeMath.add(SoldTokens, tokens);
 			token(tokenReward).transfer(msg.sender, tokens);
 			amountRaised = SafeMath.add(amountRaised, amount);
+			isInvested[msg.sender] = true;
 			FundTransfer(msg.sender, amount, true);
 		} else {
 			revert();
@@ -241,7 +243,6 @@ contract JolyyPreSale is owned {
     
     
 	function transferEth(uint256 _amount) internal {
-		require(amountRaised >= uint256(495).mul( 1 ether));
 		owner.transfer(_amount);
 		EthTransfered(owner, _amount);
 	}
