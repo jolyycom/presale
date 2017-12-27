@@ -84,7 +84,7 @@ contract JolyyToken is owned, token {
 	
 	/* This creates an array with all balances */
 	mapping (address => uint256) public balances;
-	mapping (address => mapping (address => uint256)) public allowed;
+	mapping (address => mapping (address => uint256)) internal allowed;
 	
 	event Burn(address indexed from, uint256 value);
 
@@ -173,10 +173,6 @@ contract JolyyPreSale is owned {
 	
 	JolyyToken public tokenReward;
 	
-	address public team;
-	address public company;
-	address	public bounty;
-	
     mapping(address => uint256) public balanceOf;
 	mapping(address => bool) public isInvested;
 	
@@ -185,12 +181,10 @@ contract JolyyPreSale is owned {
     bool public crowdsaleClosed;
 
     modifier afterDeadline() { 
-		require(block.timestamp >= preSaleEnds);
+		require(block.timestamp >= preSaleEnds || fundingGoalReached);
 		_; 
 	}
 	
-    event GoalReached(address indexed _recipient, uint256 _totalAmountRaised);
-
     function JolyyPreSale(address _JollyAddress) public {
         fundingGoal = SafeMath.mul(500, 1 ether);
         amountRaised = 0;
@@ -199,21 +193,20 @@ contract JolyyPreSale is owned {
 		isActive = false;
 		fundingGoalReached = false;
 		crowdsaleClosed = false;
-		team = 0x591f7bBAc47d693cb1e39177608F43e2fBb12619;
-		company = 0x3ADC439df5d035663089e588975857ECBc27e750;
-		bounty = 0xf7Bc105cCAdC3C9032a2eD60339F8F490Dc16B44;
     }
 	
 	function preSaleActivate(uint256 _price) public onlyOwner {
 		require(!isActive && !crowdsaleClosed);
 		price = _price;
 		preSaleStart = block.timestamp;
-		uint256 durationInDays = SafeMath.mul(15, 1 days);
+		uint256 durationInDays = 15 days;
 		preSaleEnds = SafeMath.add(preSaleStart, durationInDays);
 		isActive = true;
 	}
 	
     event FundTransfer(address indexed _backer, uint256 amount, bool _isContribution);
+	event GoalReached(address indexed _recipient, uint256 _totalAmountRaised);
+
     function() payable {
 		require(!crowdsaleClosed);
 		uint256 amount = msg.value;
@@ -221,16 +214,24 @@ contract JolyyPreSale is owned {
 			require(fundingGoal >= amountRaised.add(amount));
 			require(msg.value >= 2 ether && msg.value <= 25 ether);
 			require(!isInvested[msg.sender]);
+			
 			uint256 tokens = SafeMath.div(amount, price);
 			tokens = tokens.mul(1 ether);
+			
 			require(Cap >= (SafeMath.add(SoldTokens, tokens)));
+			
 			balanceOf[msg.sender] = SafeMath.add(balanceOf[msg.sender], amount);
 			
 			SoldTokens = SafeMath.add(SoldTokens, tokens);
+			
 			token(tokenReward).transfer(msg.sender, tokens);
+			
 			amountRaised = SafeMath.add(amountRaised, amount);
+			
 			isInvested[msg.sender] = true;
+			
 			FundTransfer(msg.sender, amount, true);
+			
 		} else {
 			revert();
 		}
@@ -240,25 +241,17 @@ contract JolyyPreSale is owned {
 			GoalReached(owner, amountRaised);
 		}	
     }
-    
-    
-	function transferEth(uint256 _amount) internal {
+	
+	event EthTransfered(address _owner, uint256 _value);
+	function transferEth(uint256 _amount) onlyOwner {
 		owner.transfer(_amount);
 		EthTransfered(owner, _amount);
 	}
 	
-	function transferTeamTokens() internal {
-		token(tokenReward).transfer(team, SafeMath.mul(3000000, 1 ether));
-		token(tokenReward).transfer(company, SafeMath.mul(6000000, 1 ether));
-		token(tokenReward).transfer(bounty, SafeMath.mul(3000000, 1 ether));
-	}
-	
-    event EthTransfered(address _owner, uint256 _value);
     function ClosePresale() public onlyOwner afterDeadline {
         crowdsaleClosed = true;
         isActive = false;
         transferEth(this.balance);
-        transferTeamTokens();
 		uint256 remaining = token(tokenReward).balanceOf(this);
 		token(tokenReward).transfer(owner,remaining);
 		JolyyToken(tokenReward).transferOwnership(owner);
