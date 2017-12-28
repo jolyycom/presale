@@ -170,7 +170,7 @@ contract JolyyPreSale is owned {
 	uint256 public SoldTokens;
 	uint256 public price;
 	uint256 public Cap;
-	
+	uint256 safeFunding;
 	JolyyToken public tokenReward;
 	
     mapping(address => uint256) public balanceOf;
@@ -187,6 +187,7 @@ contract JolyyPreSale is owned {
 	
     function JolyyPreSale(address _JollyAddress) public {
         fundingGoal = SafeMath.mul(500, 1 ether);
+		safeFunding = SafeMath.mul(495, 1 ether);
         amountRaised = 0;
         tokenReward = JolyyToken(_JollyAddress);
 		Cap = SafeMath.mul(12500000, 1 ether);
@@ -221,22 +222,16 @@ contract JolyyPreSale is owned {
 			require(Cap >= (SafeMath.add(SoldTokens, tokens)));
 			
 			balanceOf[msg.sender] = SafeMath.add(balanceOf[msg.sender], amount);
-			
 			SoldTokens = SafeMath.add(SoldTokens, tokens);
-			
 			token(tokenReward).transfer(msg.sender, tokens);
-			
 			amountRaised = SafeMath.add(amountRaised, amount);
-			
 			isInvested[msg.sender] = true;
-			
 			FundTransfer(msg.sender, amount, true);
-			
 		} else {
 			revert();
 		}
 		
-		if(this.balance >= fundingGoal && !fundingGoalReached) {
+		if(this.balance >= safeFunding && !fundingGoalReached) {
 			fundingGoalReached = true;
 			GoalReached(owner, amountRaised);
 		}	
